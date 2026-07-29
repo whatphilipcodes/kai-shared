@@ -53,12 +53,20 @@ class PipelineNode:
             await asyncio.sleep(self.config.network.ping_interval)
 
     async def _telemetry_response_loop(self) -> None:
+        max_rtt_ms = float(self.config.network.ping_interval * 1000)
         while self._running:
             try:
                 message = await self.dealer.socket.recv()
                 ping = TelemetryPing.model_validate_json(message)
                 rtt = (time.monotonic() - ping.timestamp) * 1000
-                logger.info(f"[TELEMETRY] RTT to {ping.responder_id}: {rtt:.2f} ms")
+
+                if rtt > max_rtt_ms:
+                    logger.warning(
+                        f"[TELEMETRY] Dropped stale ping response from {ping.responder_id} (RTT: {rtt:.2f} ms)"
+                    )
+                else:
+                    logger.info(f"[TELEMETRY] RTT to {ping.responder_id}: {rtt:.2f} ms")
+
             except ValidationError as e:
                 logger.error(f"Malformed telemetry response: {e}")
             except asyncio.CancelledError:

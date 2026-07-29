@@ -12,6 +12,8 @@ class DataPublisher:
         self.address = config_shared.data_address
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.PUB)
+        self.socket.setsockopt(zmq.SNDHWM, 100)
+        self.socket.setsockopt(zmq.IMMEDIATE, 1)
         self.socket.bind(self.address)
         logger.info(f"DataPublisher bound to {self.address}")
 
@@ -36,6 +38,9 @@ class TelemetryDealer:
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.DEALER)
         self.socket.setsockopt_string(zmq.IDENTITY, self.node_id)
+        self.socket.setsockopt(zmq.IMMEDIATE, 1)
+        self.socket.setsockopt(zmq.SNDHWM, 1)
+        self.socket.setsockopt(zmq.RCVHWM, 10)
 
     def connect(self, peer_config_shared: EndpointConfig) -> None:
         self.socket.connect(peer_config_shared.control_address)
@@ -49,7 +54,9 @@ class TelemetryDealer:
                 origin_id=self.node_id, responder_id="", timestamp=timestamp
             )
             ping_bytes = ping.model_dump_json().encode("utf-8")
-            await self.socket.send(ping_bytes)
+            await self.socket.send(ping_bytes, flags=zmq.NOBLOCK)
+        except zmq.Again:
+            logger.warning("Ping dropped: destination unreachable or socket queue full")
         except Exception as e:
             logger.error(f"Error sending ping: {e}")
 
