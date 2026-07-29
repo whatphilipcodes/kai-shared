@@ -1,8 +1,9 @@
 import zmq
 import zmq.asyncio
-from kai_shared.utils.logger import get_logger
+
 from kai_shared.config_shared import EndpointConfig
 from kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
+from kai_shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -25,7 +26,7 @@ class DataPublisher:
             await self.socket.send_multipart(
                 [topic, metadata_bytes, payload], copy=False
             )
-        except Exception as e:
+        except zmq.ZMQError as e:
             logger.error(f"Error publishing stream data: {e}")
 
     def close(self) -> None:
@@ -57,7 +58,7 @@ class TelemetryDealer:
             await self.socket.send(ping_bytes, flags=zmq.NOBLOCK)
         except zmq.Again:
             logger.warning("Ping dropped: destination unreachable or socket queue full")
-        except Exception as e:
+        except zmq.ZMQError as e:
             logger.error(f"Error sending ping: {e}")
 
     def close(self) -> None:

@@ -1,9 +1,11 @@
+import asyncio
+from collections.abc import Awaitable, Callable
+
 import zmq
 import zmq.asyncio
-import asyncio
-from typing import Callable, Awaitable, Optional
-from kai_shared.utils.logger import get_logger
+
 from kai_shared.config_shared import EndpointConfig
+from kai_shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -13,9 +15,7 @@ class DataSubscriber:
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.SUB)
         self.socket.setsockopt(zmq.RCVHWM, 100)
-        self._callback: Optional[Callable[[bytes, bytes, bytes], Awaitable[None]]] = (
-            None
-        )
+        self._callback: Callable[[bytes, bytes, bytes], Awaitable[None]] | None = None
 
     def connect(self, peer_config_shared: EndpointConfig) -> None:
         self.socket.connect(peer_config_shared.data_address)
@@ -38,7 +38,7 @@ class DataSubscriber:
                     await self._callback(topic, metadata_bytes, payload)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except zmq.ZMQError as e:
                 logger.error(f"Error in subscriber loop: {e}")
 
     def close(self) -> None:
@@ -54,7 +54,7 @@ class TelemetryRouter:
         self.socket.setsockopt(zmq.RCVHWM, 10)
         self.socket.setsockopt(zmq.IMMEDIATE, 1)
         self.socket.bind(self.address)
-        self._callback: Optional[Callable[[bytes, bytes], Awaitable[None]]] = None
+        self._callback: Callable[[bytes, bytes], Awaitable[None]] | None = None
         logger.info(f"TelemetryRouter bound to {self.address}")
 
     def register_callback(
@@ -70,7 +70,7 @@ class TelemetryRouter:
                     await self._callback(identity, message)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except zmq.ZMQError as e:
                 logger.error(f"Error in telemetry router loop: {e}")
 
     async def send_pong(self, identity: bytes, message: bytes) -> None:
@@ -80,7 +80,7 @@ class TelemetryRouter:
             logger.warning(
                 f"Pong dropped for {identity.hex()}: socket queue full or unreachable"
             )
-        except Exception as e:
+        except zmq.ZMQError as e:
             logger.error(f"Error sending pong: {e}")
 
     def close(self) -> None:
