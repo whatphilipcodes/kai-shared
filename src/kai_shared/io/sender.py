@@ -1,0 +1,57 @@
+import zmq
+import zmq.asyncio
+from src.kai_shared.utils.logger import get_logger
+from src.kai_shared.config_shared import Endpointconfig_shared
+from src.kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
+
+logger = get_logger(__name__)
+
+
+class DataPublisher:
+    def __init__(self, config_shared: Endpointconfig_shared):
+        self.address = config_shared.data_address
+        self.context = zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.PUB)
+        self.socket.bind(self.address)
+        logger.info(f"DataPublisher bound to {self.address}")
+
+    async def send_stream(
+        self, topic: bytes, metadata: StreamMetadata, payload: bytes
+    ) -> None:
+        try:
+            metadata_bytes = metadata.model_dump_json().encode("utf-8")
+            await self.socket.send_multipart(
+                [topic, metadata_bytes, payload], copy=False
+            )
+        except Exception as e:
+            logger.error(f"Error publishing stream data: {e}")
+
+    def close(self) -> None:
+        self.socket.close()
+
+
+class TelemetryDealer:
+    def __init__(self, node_id: str):
+        self.node_id = node_id
+        self.context = zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.DEALER)
+        self.socket.setsockopt_string(zmq.IDENTITY, self.node_id)
+
+    def connect(self, peer_config_shared: Endpointconfig_shared) -> None:
+        self.socket.connect(peer_config_shared.control_address)
+        logger.info(
+            f"TelemetryDealer connected to {peer_config_shared.control_address}"
+        )
+
+    async def send_ping(self, timestamp: float) -> None:
+        try:
+            ping = TelemetryPing(
+                origin_id=self.node_id, responder_id="", timestamp=timestamp
+            )
+            ping_bytes = ping.model_dump_json().encode("utf-8")
+            await self.socket.send(ping_bytes)
+        except Exception as e:
+            logger.error(f"Error sending ping: {e}")
+
+    def close(self) -> None:
+        self.socket.close()
