@@ -7,3 +7,4 @@
     ```sh
     New-NetFirewallRule -DisplayName "Kai IPC Ports" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5556,5557
     ```
+  - WSL2 has to run in `mirrored` networking mode
