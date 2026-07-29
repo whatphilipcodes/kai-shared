@@ -1,8 +1,8 @@
 import zmq
 import zmq.asyncio
-from src.kai_shared.utils.logger import get_logger
-from src.kai_shared.config_shared import EndpointConfig
-from src.kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
+from kai_shared.utils.logger import get_logger
+from kai_shared.config_shared import EndpointConfig
+from kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
 
 logger = get_logger(__name__)
 

@@ -1,7 +1,7 @@
 import logging
 from logging import Logger
 
-from src.kai_shared.config_shared import settings_shared
+from kai_shared.config_shared import settings_shared
 
 
 def get_logger(name: str) -> Logger:

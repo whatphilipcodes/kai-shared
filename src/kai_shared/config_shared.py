@@ -3,7 +3,7 @@ from pydantic_settings import (
     BaseSettings,
 )
 from ipaddress import IPv4Address
-from src.kai_shared.utils.custom_types import LogLevel, NetworkProtocol
+from kai_shared.utils.custom_types import LogLevel, NetworkProtocol
 
 
 class EndpointConfig(BaseModel):

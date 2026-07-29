@@ -2,8 +2,8 @@ import zmq
 import zmq.asyncio
 import asyncio
 from typing import Callable, Awaitable, Optional
-from src.kai_shared.utils.logger import get_logger
-from src.kai_shared.config_shared import EndpointConfig
+from kai_shared.utils.logger import get_logger
+from kai_shared.config_shared import EndpointConfig
 
 logger = get_logger(__name__)
 
