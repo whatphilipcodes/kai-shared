@@ -1,14 +1,14 @@
 import zmq
 import zmq.asyncio
 from src.kai_shared.utils.logger import get_logger
-from src.kai_shared.config_shared import Endpointconfig_shared
+from src.kai_shared.config_shared import EndpointConfig
 from src.kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
 
 logger = get_logger(__name__)
 
 
 class DataPublisher:
-    def __init__(self, config_shared: Endpointconfig_shared):
+    def __init__(self, config_shared: EndpointConfig):
         self.address = config_shared.data_address
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.PUB)
@@ -37,7 +37,7 @@ class TelemetryDealer:
         self.socket = self.context.socket(zmq.DEALER)
         self.socket.setsockopt_string(zmq.IDENTITY, self.node_id)
 
-    def connect(self, peer_config_shared: Endpointconfig_shared) -> None:
+    def connect(self, peer_config_shared: EndpointConfig) -> None:
         self.socket.connect(peer_config_shared.control_address)
         logger.info(
             f"TelemetryDealer connected to {peer_config_shared.control_address}"

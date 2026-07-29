@@ -3,7 +3,7 @@ import zmq.asyncio
 import asyncio
 from typing import Callable, Awaitable, Optional
 from src.kai_shared.utils.logger import get_logger
-from src.kai_shared.config_shared import Endpointconfig_shared
+from src.kai_shared.config_shared import EndpointConfig
 
 logger = get_logger(__name__)
 
@@ -16,7 +16,7 @@ class DataSubscriber:
             None
         )
 
-    def connect(self, peer_config_shared: Endpointconfig_shared) -> None:
+    def connect(self, peer_config_shared: EndpointConfig) -> None:
         self.socket.connect(peer_config_shared.data_address)
         logger.info(f"DataSubscriber connected to {peer_config_shared.data_address}")
 
@@ -45,7 +45,7 @@ class DataSubscriber:
 
 
 class TelemetryRouter:
-    def __init__(self, config_shared: Endpointconfig_shared):
+    def __init__(self, config_shared: EndpointConfig):
         self.address = config_shared.control_address
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.ROUTER)

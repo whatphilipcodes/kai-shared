@@ -1,7 +1,7 @@
 import logging
 from logging import Logger
 
-from src.kai_shared.config_shared import settings
+from src.kai_shared.config_shared import settings_shared
 
 
 def get_logger(name: str) -> Logger:
@@ -10,7 +10,7 @@ def get_logger(name: str) -> Logger:
 
 
 def setup_logging() -> None:
-    logging.basicconfig_shared(
-        level=settings.system.log_level.value,
+    logging.basicConfig(
+        level=settings_shared.system.log_level.value,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )

@@ -11,17 +11,17 @@ logger = get_logger(__name__)
 
 
 class PipelineNode:
-    def __init__(self, config_shared: SharedConfig):
-        self.config_shared = config_shared
-        self.node_id = self.config_shared.network.node_id
+    def __init__(self, config: SharedConfig):
+        self.config = config
+        self.node_id = self.config.network.node_id
 
-        self.publisher = DataPublisher(self.config_shared.network.bind)
-        self.router = TelemetryRouter(self.config_shared.network.bind)
+        self.publisher = DataPublisher(self.config.network.bind)
+        self.router = TelemetryRouter(self.config.network.bind)
 
         self.subscriber = DataSubscriber()
         self.dealer = TelemetryDealer(self.node_id)
 
-        for peer in self.config_shared.network.peers:
+        for peer in self.config.network.peers:
             self.subscriber.connect(peer)
             self.dealer.connect(peer)
 
@@ -50,7 +50,7 @@ class PipelineNode:
     async def _telemetry_loop(self) -> None:
         while self._running:
             await self.dealer.send_ping(time.monotonic())
-            await asyncio.sleep(self.config_shared.network.ping_interval)
+            await asyncio.sleep(self.config.network.ping_interval)
 
     async def _telemetry_response_loop(self) -> None:
         while self._running:
@@ -73,7 +73,7 @@ class PipelineNode:
         self._tasks.append(asyncio.create_task(self._telemetry_loop()))
         self._tasks.append(asyncio.create_task(self._telemetry_response_loop()))
         logger.info(
-            f"Node {self.node_id} started. Log level: {self.config_shared.system.log_level}"
+            f"Node {self.node_id} started. Log level: {self.config.system.log_level}"
         )
 
     def stop(self) -> None:
