@@ -1,12 +1,13 @@
 import logging
 from enum import IntEnum, StrEnum
 
+
 class LogLevel(IntEnum):
     CRITICAL = logging.CRITICAL
     FATAL = logging.FATAL
     ERROR = logging.ERROR
     WARNING = logging.WARNING
-    WARN = logging.WARN
+    WARN = logging.WARNING
     INFO = logging.INFO
     DEBUG = logging.DEBUG
     NOTSET = logging.NOTSET
