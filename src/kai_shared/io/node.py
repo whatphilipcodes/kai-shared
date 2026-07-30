@@ -1,6 +1,7 @@
 import asyncio
 import time
 
+import zmq
 from pydantic import ValidationError
 
 from kai_shared.config_shared import SharedConfig
@@ -73,8 +74,8 @@ class PipelineNode:
                 logger.error(f"Malformed telemetry response: {e}")
             except asyncio.CancelledError:
                 break
-            except Exception as e:
-                logger.error(f"Error receiving telemetry response: {e}")
+            except zmq.ZMQError:
+                logger.error("Error receiving telemetry response")
 
     async def start(self) -> None:
         self._running = True
