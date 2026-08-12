@@ -33,6 +33,7 @@ class SystemConfig(BaseModel):
 class NetworkConfig(BaseModel):
     node_id: str = "unnamed"
     ping_interval: float = 1.0
+    enable_telemetry: bool = False
     bind: EndpointConfig = EndpointConfig(
         protocol=NetworkProtocol.TCP,
         host="0.0.0.0",

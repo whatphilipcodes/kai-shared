@@ -21,15 +21,12 @@ class PipelineNode:
     def __init__(self, config: SharedConfig):
         self.config = config
         self.node_id = self.config.network.node_id
-
         self.publisher_realtime = PublisherRealtime(self.config.network.bind)
         self.sender_sequential = SenderSequential(self.config.network.bind)
         self.router = RouterTelemetry(self.config.network.bind)
-
         self.realtime_subscriber = SubscriberRealtime()
         self.reliable_receiver = ReceiverSequential()
         self.dealer = DealerTelemetry(self.node_id)
-
         for peer in self.config.network.peers:
             self.realtime_subscriber.connect(peer)
             self.reliable_receiver.connect(peer)
@@ -38,7 +35,6 @@ class PipelineNode:
         self.realtime_subscriber.register_callback(self.handle_realtime)
         self.reliable_receiver.register_callback(self.handle_reliable)
         self.router.register_callback(self.handle_ping)
-
         self._running = False
         self._tasks: list[asyncio.Task] = []
 
@@ -93,8 +89,9 @@ class PipelineNode:
         self._tasks.append(asyncio.create_task(self.realtime_subscriber.listen()))
         self._tasks.append(asyncio.create_task(self.reliable_receiver.listen()))
         self._tasks.append(asyncio.create_task(self.router.listen()))
-        self._tasks.append(asyncio.create_task(self._telemetry_loop()))
-        self._tasks.append(asyncio.create_task(self._telemetry_response_loop()))
+        if self.config.network.enable_telemetry:
+            self._tasks.append(asyncio.create_task(self._telemetry_loop()))
+            self._tasks.append(asyncio.create_task(self._telemetry_response_loop()))
         logger.info(
             f"Node {self.node_id} started. Log level: {self.config.system.log_level}"
         )
