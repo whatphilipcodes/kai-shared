@@ -1,7 +1,9 @@
 import asyncio
 from collections.abc import Awaitable, Callable
+
 import zmq
 import zmq.asyncio
+
 from kai_shared.config_shared import EndpointConfig
 from kai_shared.utils.logger import get_logger
 

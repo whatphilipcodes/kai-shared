@@ -1,6 +1,8 @@
 from ipaddress import IPv4Address
+
 from pydantic import BaseModel
 from pydantic_settings import BaseSettings
+
 from kai_shared.utils.custom_types import LogLevel, NetworkProtocol
 
 
