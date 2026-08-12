@@ -1,39 +1,53 @@
 import zmq
 import zmq.asyncio
-
 from kai_shared.config_shared import EndpointConfig
-from kai_shared.schemata.ipc import StreamMetadata, TelemetryPing
+from kai_shared.schemata.ipc import TelemetryPing
 from kai_shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-class DataPublisher:
+class PublisherRealtime:
     def __init__(self, config_shared: EndpointConfig):
-        self.address = config_shared.data_address
+        self.address = config_shared.address_realtime
         self.context = zmq.asyncio.Context.instance()
         self.socket = self.context.socket(zmq.PUB)
-        self.socket.setsockopt(zmq.SNDHWM, 100)
+        self.socket.setsockopt(zmq.SNDHWM, 1)
         self.socket.setsockopt(zmq.IMMEDIATE, 1)
         self.socket.bind(self.address)
-        logger.info(f"DataPublisher bound to {self.address}")
+        logger.info(f"RealtimePublisher bound to {self.address}")
 
-    async def send_stream(
-        self, topic: bytes, metadata: StreamMetadata, payload: bytes
-    ) -> None:
+    async def send(self, payload: bytes) -> None:
         try:
-            metadata_bytes = metadata.model_dump_json().encode("utf-8")
-            await self.socket.send_multipart(
-                [topic, metadata_bytes, payload], copy=False
-            )
+            await self.socket.send(payload, copy=False)
         except zmq.ZMQError as e:
-            logger.error(f"Error publishing stream data: {e}")
+            logger.error(f"Error publishing realtime payload: {e}")
 
     def close(self) -> None:
         self.socket.close()
 
 
-class TelemetryDealer:
+class SenderSequential:
+    def __init__(self, config_shared: EndpointConfig):
+        self.address = config_shared.address_sequential
+        self.context = zmq.asyncio.Context.instance()
+        self.socket = self.context.socket(zmq.PUSH)
+        self.socket.setsockopt(zmq.SNDHWM, 1000)
+        self.socket.setsockopt(zmq.IMMEDIATE, 1)
+        self.socket.bind(self.address)
+        logger.info(f"ReliableSender bound to {self.address}")
+
+    async def send(self, payload: bytes) -> None:
+        try:
+            await self.socket.send(payload, copy=False)
+        except zmq.ZMQError as e:
+            logger.error(f"Error sending reliable payload: {e}")
+
+    def close(self) -> None:
+        self.socket.close()
+
+
+class DealerTelemetry:
     def __init__(self, node_id: str):
         self.node_id = node_id
         self.context = zmq.asyncio.Context.instance()
@@ -44,10 +58,8 @@ class TelemetryDealer:
         self.socket.setsockopt(zmq.RCVHWM, 10)
 
     def connect(self, peer_config_shared: EndpointConfig) -> None:
-        self.socket.connect(peer_config_shared.control_address)
-        logger.info(
-            f"TelemetryDealer connected to {peer_config_shared.control_address}"
-        )
+        self.socket.connect(peer_config_shared.address_system)
+        logger.info(f"TelemetryDealer connected to {peer_config_shared.address_system}")
 
     async def send_ping(self, timestamp: float) -> None:
         try:

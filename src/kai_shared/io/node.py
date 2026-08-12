@@ -1,12 +1,14 @@
 import asyncio
 import time
-
 import zmq
 from pydantic import ValidationError
-
 from kai_shared.config_shared import SharedConfig
-from kai_shared.io.receiver import DataSubscriber, TelemetryRouter
-from kai_shared.io.sender import DataPublisher, TelemetryDealer
+from kai_shared.io.receiver import (
+    SubscriberRealtime,
+    ReceiverSequential,
+    RouterTelemetry,
+)
+from kai_shared.io.sender import PublisherRealtime, SenderSequential, DealerTelemetry
 from kai_shared.schemata.ipc import TelemetryPing
 from kai_shared.utils.logger import get_logger
 
@@ -18,28 +20,37 @@ class PipelineNode:
         self.config = config
         self.node_id = self.config.network.node_id
 
-        self.publisher = DataPublisher(self.config.network.bind)
-        self.router = TelemetryRouter(self.config.network.bind)
+        self.publisher_realtime = PublisherRealtime(self.config.network.bind)
+        self.sender_sequential = SenderSequential(self.config.network.bind)
+        self.router = RouterTelemetry(self.config.network.bind)
 
-        self.subscriber = DataSubscriber()
-        self.dealer = TelemetryDealer(self.node_id)
+        self.realtime_subscriber = SubscriberRealtime()
+        self.reliable_receiver = ReceiverSequential()
+        self.dealer = DealerTelemetry(self.node_id)
 
         for peer in self.config.network.peers:
-            self.subscriber.connect(peer)
+            self.realtime_subscriber.connect(peer)
+            self.reliable_receiver.connect(peer)
             self.dealer.connect(peer)
 
-        self.subscriber.subscribe(b"")
-
-        self.subscriber.register_callback(self.handle_data)
+        self.realtime_subscriber.register_callback(self.handle_realtime)
+        self.reliable_receiver.register_callback(self.handle_reliable)
         self.router.register_callback(self.handle_ping)
 
         self._running = False
         self._tasks: list[asyncio.Task] = []
 
-    async def handle_data(
-        self, topic: bytes, metadata_bytes: bytes, payload: bytes
-    ) -> None:
-        logger.debug(f"Received data on topic {topic}")
+    async def handle_realtime(self, payload: bytes) -> None:
+        logger.debug(f"Received realtime payload of size {len(payload)}")
+
+    async def handle_reliable(self, payload: bytes) -> None:
+        logger.debug(f"Received reliable payload of size {len(payload)}")
+
+    async def send_realtime(self, payload: bytes) -> None:
+        await self.publisher_realtime.send(payload)
+
+    async def send_reliable(self, payload: bytes) -> None:
+        await self.sender_sequential.send(payload)
 
     async def handle_ping(self, identity: bytes, message: bytes) -> None:
         try:
@@ -62,14 +73,12 @@ class PipelineNode:
                 message = await self.dealer.socket.recv()
                 ping = TelemetryPing.model_validate_json(message)
                 rtt = (time.monotonic() - ping.timestamp) * 1000
-
                 if rtt > max_rtt_ms:
                     logger.warning(
                         f"[TELEMETRY] Dropped stale ping response from {ping.responder_id} (RTT: {rtt:.2f} ms)"
                     )
                 else:
                     logger.info(f"[TELEMETRY] RTT to {ping.responder_id}: {rtt:.2f} ms")
-
             except ValidationError as e:
                 logger.error(f"Malformed telemetry response: {e}")
             except asyncio.CancelledError:
@@ -79,7 +88,8 @@ class PipelineNode:
 
     async def start(self) -> None:
         self._running = True
-        self._tasks.append(asyncio.create_task(self.subscriber.listen()))
+        self._tasks.append(asyncio.create_task(self.realtime_subscriber.listen()))
+        self._tasks.append(asyncio.create_task(self.reliable_receiver.listen()))
         self._tasks.append(asyncio.create_task(self.router.listen()))
         self._tasks.append(asyncio.create_task(self._telemetry_loop()))
         self._tasks.append(asyncio.create_task(self._telemetry_response_loop()))
@@ -91,8 +101,10 @@ class PipelineNode:
         self._running = False
         for task in self._tasks:
             task.cancel()
-        self.publisher.close()
-        self.subscriber.close()
+        self.publisher_realtime.close()
+        self.sender_sequential.close()
+        self.realtime_subscriber.close()
+        self.reliable_receiver.close()
         self.router.close()
         self.dealer.close()
         logger.info("Node resources released safely.")
